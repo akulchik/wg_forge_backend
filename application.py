@@ -5,7 +5,8 @@
 import json
 import os
 import platform
-from flask import Flask, render_template, make_response, request
+import werkzeug.exceptions as ex
+from flask import Flask, abort, render_template, make_response, request
 from flask_session import Session
 
 # Enable ORM.
@@ -35,11 +36,41 @@ def api_ping(*args, **kwargs):
 
 @app.route('/cats', methods=['GET'])
 def api_cats(*args, **kwargs):
-    _attribute = request.args.get('attribute', '1')
+    db_cols = db.execute("""SELECT column_name
+                                FROM information_schema.columns
+                                WHERE table_name='cats'""").fetchall()
+    column_names = [r[0] for r in db_cols]
+
+    _attribute = request.args.get('attribute', column_names[0])
+    if _attribute not in column_names:
+        return abort(404)
+
     _order = request.args.get('order', 'ASC')
+    if _order.upper() not in ('ASC', 'DESC'):
+        return abort(404)
+
     _offset = request.args.get('offset', '0')
+    try:
+        _offset = int(_offset)
+        if _offset < 0:
+            return abort(404)
+    except ValueError:
+        return abort(404)
+
     _limit = request.args.get('limit', 'ALL')
-    resp = db.execute("""SELECT * FROM cats ORDER BY %s %s LIMIT %s OFFSET %s""" % (_attribute, _order, _limit, _offset)).fetchall()
+    try:
+        if _limit.upper() != 'ALL':
+            _limit = int(_limit)
+            if _limit < 0:
+                return abort(404)
+    except ValueError:
+        return abort(404)
+
+    resp = db.execute("""SELECT *
+                            FROM cats
+                            ORDER BY %s %s
+                            LIMIT %s
+                            OFFSET %s""" % (_attribute, _order, _limit, _offset)).fetchall()
     return json.dumps([dict(r) for r in resp])
 
 
@@ -47,8 +78,15 @@ def api_cats(*args, **kwargs):
 def api_add_cat(*args, **kwargs):
     if request.method == 'POST':
         cat_dict = request.get_json(force=True)
-        db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
-                          VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
+        db_cols = db.execute("""SELECT column_name
+                                    FROM information_schema.columns
+                                    WHERE table_name='cats'""").fetchall()
+        column_names = [r[0] for r in db_cols]
+        for k in cat_dict.keys():
+            if k not in column_names:
+                return abort(405)
+        #db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
+        #                 VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
         return "Everything just fine."
 
 
@@ -56,6 +94,6 @@ if __name__ == '__main__':
     os.environ['FLASK_APP'] = 'application.py'
     os.environ['FLASK_DEBUG'] = '1'
     if platform.system() == 'Linux':
-        os.system(f'sudo flask run --no-reload')
+        os.system('sudo flask run --no-reload')
     elif platform.system() == 'Windows':
-        os.system(f'flask run --no-reload')
+        os.system('flask run --no-reload')

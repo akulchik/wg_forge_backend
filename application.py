@@ -76,18 +76,18 @@ def api_cats(*args, **kwargs):
 
 @app.route('/cat', methods=['POST'])
 def api_add_cat(*args, **kwargs):
-    if request.method == 'POST':
-        cat_dict = request.get_json(force=True)
-        db_cols = db.execute("""SELECT column_name
-                                    FROM information_schema.columns
-                                    WHERE table_name='cats'""").fetchall()
-        column_names = [r[0] for r in db_cols]
-        for k in cat_dict.keys():
-            if k not in column_names:
-                return abort(405)
-        #db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
-        #                 VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
-        return "Everything just fine."
+    cat_dict = request.get_json(force=True)
+    print(cat_dict)
+    db_cols = db.execute("""SELECT column_name
+                                FROM information_schema.columns
+                                WHERE table_name='cats'""").fetchall()
+    column_names = [r[0] for r in db_cols]
+    for k in cat_dict.keys():
+        if k not in column_names:
+            return abort(404)
+    #db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
+    #                 VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
+    return 'It still works.'
 
 
 if __name__ == '__main__':

@@ -33,6 +33,11 @@ def index():
     return make_response()
 
 
+@app.route('/ping')
+def api_ping(methods=['GET'], *args, **kwargs):
+    return "Cats Service. Version 0.1"
+
+
 if __name__ == '__main__':
     os.environ['FLASK_APP'] = 'application.py'
     os.environ['FLASK_DEBUG'] = '1'

@@ -1,27 +1,24 @@
-#! /usr/bin/python3
-#! -*- coding: utf-8 -*-
+#! /usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 
-import json
 import os
-import platform
-import werkzeug.exceptions as ex
+import wg_forge_api as _api
+import wg_forge_api_exceptions as _exc
 import wg_forge_api_schemas as _schemas
-from flask import Flask, abort, g, make_response, request
+import wg_forge_api_queries as _q
+from flask import Flask, abort, g, jsonify, request
 from flask_expects_json import expects_json
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
-# Enable ORM.
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 
 # Initialize and configure the application.
 app = Flask(__name__)
-app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_TYPE'] = 'filesystem'
 
+# Set requests limit to 600 times per minute.
 limiter = Limiter(
     app,
     key_func=get_remote_address,
@@ -36,96 +33,60 @@ db = scoped_session(sessionmaker(bind=engine))
 
 @app.route('/ping', methods=['GET'])
 def api_ping(*args, **kwargs):
+    """
+    Returns heartbeat string with service information.
+    :param args: Unexpected arguments.
+    :param kwargs: Unexpected keyword arguments.
+    :return: "Cats Service. Version 0.1", 200 OK
+    """
     resp = "Cats Service. Version 0.1"
-    return resp
+    return resp, 200
 
 
 @app.route('/cats', methods=['GET'])
 def api_cats(*args, **kwargs):
-    db_cols = db.execute("""SELECT column_name
-                                FROM information_schema.columns
-                                WHERE table_name='cats'""").fetchall()
-    column_names = [r[0] for r in db_cols]
-
-    _attribute = request.args.get('attribute', column_names[0])
-    if _attribute not in column_names:
-        return abort(404)
-
-    _order = request.args.get('order', 'ASC')
-    if _order.upper() not in ('ASC', 'DESC'):
-        return abort(404)
-
-    _offset = request.args.get('offset', '0')
+    """
+    Query database to retrieve data about cats.
+    :param args: Unexpected arguments.
+    :param kwargs: Unexpected keyword arguments.
+    :return: JSON with requested information OR 400 Bad Request
+    """
     try:
-        _offset = int(_offset)
-        if _offset < 0:
-            return abort(404)
-    except ValueError:
-        return abort(404)
-
-    _limit = request.args.get('limit', 'ALL')
-    try:
-        if _limit.upper() != 'ALL':
-            _limit = int(_limit)
-            if _limit < 0:
-                return abort(404)
-    except ValueError:
-        return abort(404)
-
-    resp = db.execute("""SELECT *
-                            FROM cats
-                            ORDER BY %s %s
-                            LIMIT %s
-                            OFFSET %s""" % (_attribute, _order, _limit, _offset)).fetchall()
-    return json.dumps([dict(r) for r in resp])
+        cat_dict = request.args
+        _api.validate_cats_select_parameters(cat_dict)
+        attribute = cat_dict.get('attribute', '1')
+        order = cat_dict.get('order', 'ASC')
+        limit = cat_dict.get('limit', 'ALL')
+        offset = cat_dict.get('offset', '0')
+        resp = db.execute(_q.select_cats_query.format(attribute, order, limit, offset)).fetchall()
+        return jsonify([dict(r) for r in resp])
+    except _exc.TooManyParameters as e:
+        return abort(400, e.description)
+    except _exc.UnexpectedParameter as e:
+        return abort(400, e.description)
+    except _exc.UnexpectedParameterValue as e:
+        return abort(400, e.description)
 
 
 @app.route('/cat', methods=['POST'])
 @expects_json(_schemas.CAT_SCHEMA, force=True)
-def api_add_cat(*args, **kwargs):
-    cat_dict = g.data
-    db_cols = db.execute("""SELECT column_name
-                                FROM information_schema.columns
-                                WHERE table_name='cats'""").fetchall()
-    column_names = [r[0] for r in db_cols]
-
-    for k in cat_dict.keys():
-        if k not in column_names:
-            return abort(404)
-
-    _name = cat_dict.get('name')
-    if _name is None:
-        return abort(404)
-
-    _color = cat_dict.get('color')
-    if _color is None:
-        return abort(404)
-
-    _tail_length = cat_dict.get('tail_length')
-    if _tail_length is None:
-        return abort(404)
-    elif type(_tail_length) is not int:
-        return abort(404)
-    elif _tail_length < 0:
-        return abort(404)
-
-    _whiskers_length = cat_dict.get('whiskers_length')
-    if _whiskers_length is None:
-        return abort(404)
-    elif type(_whiskers_length) is not int:
-        return abort(404)
-    elif _whiskers_length < 0:
-        return abort(404)
-
-    #db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
-    #                 VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
-    return 'It still works.'
+def add_cat(*args, **kwargs):
+    """
+    Update database with a new cat.
+    :param args: Unexpected arguments.
+    :param kwargs: Unexpected keyword arguments.
+    :return: 201 Created OR 400 Bad Request
+    """
+    try:
+        cat_dict = g.data
+        _api.validate_cat_tail_and_whiskers(cat_dict)
+        #db.execute(_q.insert_cat_query, cat_dict)
+        resp = 'Database successfully updated.'
+        return resp, 201
+    except _exc.TailLengthIsNegative as e:
+        return abort(400, e.description)
+    except _exc.WhiskersLengthIsNegative as e:
+        return abort(400, e.description)
 
 
-if __name__ == '__main__':
-    os.environ['FLASK_APP'] = 'application.py'
-    os.environ['FLASK_DEBUG'] = '1'
-    if platform.system() == 'Linux':
-        os.system('sudo flask run --no-reload')
-    elif platform.system() == 'Windows':
-        os.system('flask run --no-reload')
+app.run(debug=True, use_reloader=False)

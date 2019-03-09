@@ -1,4 +1,4 @@
-import wg_forge_exceptions as _exc
+import wg_forge_api_exceptions as _exc
 
 
 GET_CATS_VALID_PARAMETERS = (

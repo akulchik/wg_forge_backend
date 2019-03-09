@@ -3,8 +3,8 @@ CAT_SCHEMA = {
     "properties": {
         "name": {"type": "string"},
         "color": {"type": "string"},
-        "tail_length": {"type": "number"},
-        "whiskers_length": {"type": "number"}
+        "tail_length": {"type": "integer"},
+        "whiskers_length": {"type": "integer"}
     },
     "required": ["name", "color", "tail_length", "whiskers_length"],
 }

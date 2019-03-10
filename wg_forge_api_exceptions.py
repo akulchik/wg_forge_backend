@@ -2,7 +2,7 @@ import werkzeug.exceptions as exc
 
 
 class TailLengthIsNegative(exc.BadRequest):
-    description = 'tail_length cannot be negative'
+    description = '\'tail_length\' cannot be negative'
 
 
 class TooManyParameters(exc.BadRequest):
@@ -18,4 +18,4 @@ class UnexpectedParameterValue(exc.BadRequest):
 
 
 class WhiskersLengthIsNegative(exc.BadRequest):
-    description = 'whiskers_length cannot be negative'
+    description = '\'whiskers_length\' cannot be negative'

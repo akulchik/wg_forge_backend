@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 import pytest
 import application as appl
 from collections.abc import Container, Iterable, MutableSet
@@ -41,9 +42,9 @@ def test_api_cats_case0(client):
 def test_api_cats_case1(client):
     """Request with attribute."""
     rv = client.get('/cats?attribute=name')
-    assert rv.status_code == 200, 'Valid attribute name'
+    assert rv.status_code == 200, 'Valid attribute'
     rv = client.get('/cats?attribute=imya')
-    assert rv.status_code == 400, 'Invalid attribute name'
+    assert rv.status_code == 400, 'Invalid attribute'
 
 
 def test_api_cats_case2(client):
@@ -75,7 +76,7 @@ def test_api_cats_case4(client):
     rv = client.get('/cats?offset=-7')
     assert rv.status_code == 400, 'Negative offset'
     rv = client.get('/cats?offset=vsevsevse')
-    assert rv.status_code == 400, 'Offset of string data type'
+    assert rv.status_code == 400, 'String offset'
     rv = client.get('/cats?offset=3.14')
     assert rv.status_code == 400, 'Floating point offset'
 
@@ -97,7 +98,7 @@ def test_api_add_cat_case0(client):
     rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
                                    'tail_length': 12, 'whiskers_length': 15})
     assert rv.status_code == 201, 'Valid cat'
-    assert b'Database successfully updated.' in rv.data
+    assert b'Database successfully updated' in rv.data
 
 
 def test_api_add_cat_case1(client):
@@ -121,7 +122,7 @@ def test_api_add_cat_case2(client):
     rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
                                    'tail_length': 12, 'whiskers_length': 15, 'foo': 'bar'})
     assert rv.status_code == 400, 'Wrong parameter'
-    assert b'Got unexpected parameter(s) \'foo\'.' in rv.data
+    assert b'Got unexpected parameter(s) \'foo\'' in rv.data
 
 
 def test_api_add_cat_case3(client):
@@ -129,7 +130,7 @@ def test_api_add_cat_case3(client):
     rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
                                    'tail_length': -12, 'whiskers_length': 15})
     assert rv.status_code == 400, 'Negative tail_length'
-    assert b'tail_length cannot be negative' in rv.data
+    assert b'\'tail_length\' cannot be negative' in rv.data
 
 
 def test_api_add_cat_case4(client):
@@ -137,11 +138,13 @@ def test_api_add_cat_case4(client):
     rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
                                    'tail_length': 12, 'whiskers_length': -15})
     assert rv.status_code == 400, 'Negative whiskers_length'
-    assert b'whiskers_length cannot be negative' in rv.data
+    assert b'\'whiskers_length\' cannot be negative' in rv.data
 
 
 def test_api_stress(client):
     """Too many requests."""
-    for _ in range(601):
+    for _ in range(600):
         rv = client.get('/ping')
+        assert rv.status_code == 200
+    rv = client.get('/ping')
     assert rv.status_code == 429

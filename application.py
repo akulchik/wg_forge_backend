@@ -3,14 +3,15 @@
 
 
 import os
-import wg_forge_api_exceptions as _exc
-import wg_forge_api_helpers as _api
-import wg_forge_api_schemas as _schemas
-from flask import Flask, abort, g, jsonify, request
+import wg_forge_api_exceptions as exc
+import wg_forge_api_helpers as helpers
+import wg_forge_api_schemas as schemas
+from flask import Flask, g, jsonify, request
 from flask_expects_json import expects_json
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 
@@ -60,7 +61,7 @@ def api_cats(*args, **kwargs):
     """
     try:
         cat_dict = request.args
-        _api.validate_cats_select_parameters(cat_dict)
+        helpers.validate_cats_select_parameters(cat_dict)
         attribute = cat_dict.get('attribute', '1')
         order = cat_dict.get('order', 'ASC')
         limit = cat_dict.get('limit', 'ALL')
@@ -71,16 +72,16 @@ def api_cats(*args, **kwargs):
                            LIMIT {}
                            OFFSET {}""".format(attribute, order, limit, offset)).fetchall()
         return jsonify([dict(r) for r in resp]), 200
-    except _exc.TooManyParameters as e:
-        return abort(400, e.description)
-    except _exc.UnexpectedParameter as e:
-        return abort(400, e.description)
-    except _exc.UnexpectedParameterValue as e:
-        return abort(400, e.description)
+    except exc.TooManyParameters as e:
+        return e.description, 400
+    except exc.UnexpectedParameter as e:
+        return e.description, 400
+    except exc.UnexpectedParameterValue as e:
+        return e.description, 400
 
 
 @app.route('/cat', methods=['POST'])
-@expects_json(_schemas.CAT_SCHEMA, force=True)
+@expects_json(schemas.CAT_SCHEMA, force=True)
 def add_cat(*args, **kwargs):
     """
     Update database with a new cat.
@@ -91,18 +92,20 @@ def add_cat(*args, **kwargs):
     """
     try:
         cat_dict = g.data
-        _api.validate_no_extra_parameters(cat_dict)
-        _api.validate_cat_tail_and_whiskers(cat_dict)
+        helpers.validate_no_extra_parameters(cat_dict)
+        helpers.validate_cat_tail_and_whiskers(cat_dict)
         db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
                           VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
-        resp = 'Database successfully updated.'
+        resp = 'Database successfully updated'
         return resp, 201
-    except _exc.TailLengthIsNegative as e:
-        return abort(400, e.description)
-    except _exc.TooManyParameters as e:
-        return abort(400, e.description)
-    except _exc.WhiskersLengthIsNegative as e:
-        return abort(400, e.description)
+    except IntegrityError:
+        return 'Cat already in database', 400
+    except exc.TailLengthIsNegative as e:
+        return e.description, 400
+    except exc.TooManyParameters as e:
+        return e.description, 400
+    except exc.WhiskersLengthIsNegative as e:
+        return e.description, 400
 
 
-app.run(debug=True, port=8080, use_reloader=False)
+app.run(debug=False, port=8080, use_reloader=False)

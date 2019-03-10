@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION _function_median(NUMERIC[])
+CREATE OR REPLACE FUNCTION _final_median(NUMERIC[])
     RETURNS NUMERIC AS
     $BODY$
     SELECT AVG(val)
@@ -19,14 +19,9 @@ CREATE AGGREGATE median(NUMERIC) (
     INITCOND='{}'
 );
 
-INSERT INTO cats_stat (tail_length_mean, tail_length_median, tail_length_mode)
+INSERT INTO cats_stat (tail_length_mean, tail_length_median, whiskers_length_mean, whiskers_length_median)
     SELECT AVG(tail_length),
         median(tail_length),
-        mode() WITHIN GROUP (ORDER BY tail_length)
-    FROM cats;
-
-INSERT INTO cats_stat (whiskers_length_mean, whiskers_length_median, whiskers_length_mode)
-    SELECT AVG(whiskers_length),
-        median(whiskers_length),
-        mode() WITHIN GROUP (ORDER BY whiskers_length)
+        AVG(whiskers_length),
+        median(whiskers_length)
     FROM cats;

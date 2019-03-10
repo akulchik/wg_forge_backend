@@ -2,7 +2,8 @@ import os
 import tempfile
 import pytest
 import application as appl
-from flask import request, jsonify
+from collections.abc import Container, Iterable, MutableSet
+from collections.abc import Mapping, MutableMapping, Sequence
 
 
 @pytest.fixture
@@ -11,13 +12,18 @@ def client():
     appl.app.config['TESTING'] = True
     client = appl.app.test_client()
 
-    with appl.app.app_context():
-        appl.init_db()
+    #with appl.app.app_context():
+    #    appl.init_db()
 
     yield client
 
-    os.close(db_fd)
-    os.unlink(appl.app.config['DATABASE'])
+    #os.close(db_fd)
+    #os.unlink(appl.app.config['DATABASE'])
+
+
+def test_sanity_check():
+    """Basic test."""
+    assert True, 'Sanity check'
 
 
 def test_api_ping(client):
@@ -84,3 +90,51 @@ def test_api_cats_case6(client):
     """Too many request parameters."""
     rv = client.get('/cats?attribute=color&order=asc&limit=15&offset=10&wrongparameter=wrongvalue')
     assert rv.status_code == 400, 'Too many parameters'
+
+
+def test_api_add_cat_case0(client):
+    """Valid cat."""
+    rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
+                                   'tail_length': 12, 'whiskers_length': 15})
+    assert rv.status_code == 201, 'Valid cat'
+    assert b'Database successfully updated.' in rv.data
+
+
+def test_api_add_cat_case1(client):
+    """No parameters."""
+    rv = client.post('/cat', json={})
+    assert rv.status_code == 400, 'No \'name\' property'
+    assert b'\'name\' is a required property' in rv.data
+    rv = client.post('/cat', json={'name': 'Perez'})
+    assert rv.status_code == 400, 'No \'color\' property'
+    assert b'\'color\' is a required property' in rv.data
+    rv = client.post('/cat', json={'name': 'Perez', 'color': 'white'})
+    assert rv.status_code == 400, 'No \'tail_length\' property'
+    assert b'\'tail_length\' is a required property' in rv.data
+    rv = client.post('/cat', json={'name': 'Perez', 'color': 'white', 'tail_length': 12})
+    assert rv.status_code == 400, 'No \'whiskers_length\' property'
+    assert b'\'whiskers_length\' is a required property' in rv.data
+
+
+def test_api_add_cat_case2(client):
+    """Wrong parameter."""
+    rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
+                                   'tail_length': 12, 'whiskers_length': 15, 'foo': 'bar'})
+    assert rv.status_code == 400, 'Wrong parameter'
+    assert b'Got unexpected parameter(s) \'foo\'.' in rv.data
+
+
+def test_api_add_cat_case3(client):
+    """Negative tail length."""
+    rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
+                                   'tail_length': -12, 'whiskers_length': 15})
+    assert rv.status_code == 400, 'Negative tail_length'
+    assert b'tail_length cannot be negative' in rv.data
+
+
+def test_api_add_cat_case4(client):
+    """Negative whiskers length."""
+    rv = client.post('/cat', json={'name': 'Perez', 'color': 'white',
+                                   'tail_length': 12, 'whiskers_length': -15})
+    assert rv.status_code == 400, 'Negative whiskers_length'
+    assert b'whiskers_length cannot be negative' in rv.data

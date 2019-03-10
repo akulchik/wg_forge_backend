@@ -67,3 +67,10 @@ def validate_cat_tail_and_whiskers(cat_dict):
         raise _exc.TailLengthIsNegative
     if cat_dict['whiskers_length'] < 0:
         raise _exc.WhiskersLengthIsNegative
+
+
+def validate_no_extra_parameters(cat_dict):
+    if len(cat_dict) > 4:
+        extra_params = ['\'' + k + '\'' for k in cat_dict.keys() if k.lower() not in CATS_VALID_ATTRIBUTES]
+        extra_params_as_string = ', '.join(extra_params)
+        raise _exc.TooManyParameters(f'Got unexpected parameter(s) {extra_params_as_string}.')

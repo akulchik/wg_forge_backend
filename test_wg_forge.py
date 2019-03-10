@@ -138,3 +138,10 @@ def test_api_add_cat_case4(client):
                                    'tail_length': 12, 'whiskers_length': -15})
     assert rv.status_code == 400, 'Negative whiskers_length'
     assert b'whiskers_length cannot be negative' in rv.data
+
+
+def test_api_stress(client):
+    """Too many requests."""
+    for _ in range(601):
+        rv = client.get('/ping')
+    assert rv.status_code == 429

@@ -12,13 +12,13 @@ def client():
     appl.app.config['TESTING'] = True
     client = appl.app.test_client()
 
-    #with appl.app.app_context():
-    #    appl.init_db()
+    with appl.app.app_context():
+        appl.init_db()
 
     yield client
 
-    #os.close(db_fd)
-    #os.unlink(appl.app.config['DATABASE'])
+    os.close(db_fd)
+    os.unlink(appl.app.config['DATABASE'])
 
 
 def test_sanity_check():

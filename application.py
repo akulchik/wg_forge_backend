@@ -6,7 +6,6 @@ import os
 import wg_forge_api_exceptions as _exc
 import wg_forge_api_helpers as _api
 import wg_forge_api_schemas as _schemas
-import wg_forge_api_queries as _q
 from flask import Flask, abort, g, jsonify, request
 from flask_expects_json import expects_json
 from flask_limiter import Limiter
@@ -66,7 +65,11 @@ def api_cats(*args, **kwargs):
         order = cat_dict.get('order', 'ASC')
         limit = cat_dict.get('limit', 'ALL')
         offset = cat_dict.get('offset', '0')
-        resp = db.execute(_q.select_cats_query.format(attribute, order, limit, offset)).fetchall()
+        resp = db.execute("""SELECT *
+                           FROM cats
+                           ORDER BY {} {}
+                           LIMIT {}
+                           OFFSET {}""".format(attribute, order, limit, offset)).fetchall()
         return jsonify([dict(r) for r in resp]), 200
     except _exc.TooManyParameters as e:
         return abort(400, e.description)
@@ -90,7 +93,8 @@ def add_cat(*args, **kwargs):
         cat_dict = g.data
         _api.validate_no_extra_parameters(cat_dict)
         _api.validate_cat_tail_and_whiskers(cat_dict)
-        #db.execute(_q.insert_cat_query, cat_dict)
+        db.execute("""INSERT INTO cats (name, color, tail_length, whiskers_length)
+                          VALUES (:name, :color, :tail_length, :whiskers_length)""", cat_dict)
         resp = 'Database successfully updated.'
         return resp, 201
     except _exc.TailLengthIsNegative as e:

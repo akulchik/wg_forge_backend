@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION _function_median(NUMERIC[])
         OFFSET CEIL(array_upper($1, 1) / 2.0) - 1
     ) sub;
     $BODY$
-    LANGUAGE 'sql' IMMUTABLE;
+    LANGUAGE SQL IMMUTABLE;
 
 CREATE AGGREGATE median(NUMERIC) (
     SFUNC=array_append,
